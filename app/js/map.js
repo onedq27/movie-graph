@@ -643,7 +643,7 @@ export function renderMap(container, opts) {
   canvas.addEventListener('click', onClick);
   canvas.addEventListener('keydown', onKey);
   const onTheme = () => { readTheme(); invalidate(); };
-  document.addEventListener('themechange', onTheme);   // fired by main.js on every theme switch
+  document.addEventListener('themechange', onTheme);   // fired by theme.js on every switch
 
   let ro = null;
   if (typeof ResizeObserver === 'function') {

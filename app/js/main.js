@@ -9,6 +9,7 @@ import { renderGraph, genreColor, PALETTE_SIZE } from './graph.js';
 import { showPanel } from './panel.js';
 import { genreSections } from './sections.js';
 import { renderMap, matchMask } from './map.js';
+import { initTheme } from './theme.js';
 
 const PAGE = 100;            // rows rendered per step
 const SECTION_ROWS = 6;      // cards per genre section: two rows of 3, three rows of 2
@@ -71,39 +72,6 @@ function readBrowse() {
 function setBrowse(view) {
   state.browse = view;
   try { localStorage.setItem('browse', view); } catch { /* ignore */ }
-}
-
-// ---- theme ----------------------------------------------------------------
-// <html data-theme> is first set by the inline script in index.html. Until the user
-// presses the toggle the app follows the system; after that their choice is kept.
-
-const THEME_BAR = { light: '#f4f5f8', dark: '#0e1014' };   // --bg of each theme
-const darkMq = matchMedia('(prefers-color-scheme: dark)');
-
-function savedTheme() {
-  try {
-    const t = localStorage.getItem('theme');
-    return t === 'dark' || t === 'light' ? t : null;
-  } catch { return null; }
-}
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  $('theme-color').content = THEME_BAR[theme];
-  const label = theme === 'dark' ? 'ღია თემა' : 'მუქი თემა';   // what the button switches to
-  $('theme-btn').setAttribute('aria-label', label);
-  $('theme-btn').title = label;
-  document.dispatchEvent(new Event('themechange'));         // the canvas map re-reads its colours
-}
-function initTheme() {
-  applyTheme(savedTheme() || (darkMq.matches ? 'dark' : 'light'));
-  $('theme-btn').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem('theme', next); } catch { /* ignore */ }
-    applyTheme(next);
-  });
-  darkMq.addEventListener('change', () => {
-    if (!savedTheme()) applyTheme(darkMq.matches ? 'dark' : 'light');
-  });
 }
 
 // ---- views ----------------------------------------------------------------
@@ -785,7 +753,14 @@ function showGraph(p) {
 // ---- events ---------------------------------------------------------------
 
 function bind() {
-  initTheme();
+  initTheme({
+    doc: document,
+    storage: (() => { try { return localStorage; } catch { return null; } })(),
+    systemDark: matchMedia('(prefers-color-scheme: dark)'),
+    button: $('theme-btn'),
+    meta: $('theme-color'),
+    labels: { dark: 'მუქი თემა', light: 'ღია თემა' },
+  });
   window.addEventListener('hashchange', route);
 
   $('q').addEventListener('input', onQuery);

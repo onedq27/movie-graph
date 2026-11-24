@@ -3,7 +3,11 @@
 // Everything is resolved relative to the worker's scope, because the app is
 // served from a sub-path (https://<user>.github.io/<repo>/).
 //
-//   shell files          stale-while-revalidate (cache answers, network refreshes it)
+//   index.html           stale-while-revalidate (cache answers, network refreshes it)
+//   css/js with ?v=      cache-first: the deploy stamps every css/js URL with the build
+//                        (app/dev/stamp.mjs), so a page always gets the css/js it was
+//                        written for, never a leftover from an older deploy
+//   other shell files    stale-while-revalidate (icons, manifest, everything when unstamped)
 //   data/meta.json       network-first, cached copy when offline
 //   data/*?v=<version>   cache-first (the version is part of the URL; includes {set}.xy.json)
 //   other origins        not handled at all (posters go straight to the network)
@@ -12,7 +16,8 @@
 // meta.json arrives, and on every activate, cached data files whose ?v= is not
 // that version are deleted, so an installed phone does not keep old exports.
 
-const SHELL_CACHE = 'shell-v1';   // bump only if the caching scheme itself changes
+const BUILD = 'dev';              // the deploy replaces this with the commit SHA (app/dev/stamp.mjs)
+const SHELL_CACHE = 'shell-v2';   // bump only if the caching scheme itself changes
 const DATA_CACHE = 'data-v1';
 
 const SCOPE = new URL('./', self.location.href);
@@ -31,6 +36,7 @@ const SHELL = [
   'js/panel.js',
   'js/sections.js',
   'js/map.js',
+  'js/theme.js',
   'vendor/d3.min.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
@@ -38,6 +44,13 @@ const SHELL = [
 ];
 
 const cacheable = (res) => res && res.ok && res.type === 'basic';
+const STAMPED = BUILD !== 'dev';
+// Same rule as the stamp script: css and js carry the build in their URL.
+const shellUrl = (path) => {
+  const url = new URL(path, SCOPE);
+  if (STAMPED && /\.(css|js)$/.test(url.pathname)) url.searchParams.set('v', BUILD);
+  return url.href;
+};
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -45,7 +58,7 @@ self.addEventListener('install', (event) => {
     // One by one: a missing or failing file must not fail the whole install.
     await Promise.all(SHELL.map(async (path) => {
       try {
-        const url = new URL(path, SCOPE).href;
+        const url = shellUrl(path);
         const res = await fetch(url, { cache: 'no-cache' });
         if (cacheable(res)) await cache.put(url, res);
       } catch (_) { /* picked up later by stale-while-revalidate */ }
@@ -61,6 +74,7 @@ self.addEventListener('activate', (event) => {
       .filter((n) => n !== SHELL_CACHE && n !== DATA_CACHE)
       .map((n) => caches.delete(n)));
     await pruneData(await cachedVersion());
+    await pruneShell();
     await self.clients.claim();
   })());
 });
@@ -78,6 +92,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(url.searchParams.has('v')
       ? dataCacheFirst(req)
       : networkFirst(req));                               // unversioned: never pin it
+  } else if (req.mode !== 'navigate' && url.searchParams.has('v')) {
+    event.respondWith(shellVersioned(url));
   } else {
     event.respondWith(shellStaleWhileRevalidate(event, req, url));
   }
@@ -160,6 +176,36 @@ async function networkFirst(req) {
 }
 
 // ---- shell --------------------------------------------------------------
+
+// css/js of one build: the URL names the build, so a cached copy never goes stale.
+async function shellVersioned(url) {
+  const cache = await caches.open(SHELL_CACHE);
+  const key = url.origin + url.pathname + url.search;
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  try {
+    // 'no-cache': the same path was served with other bytes by an earlier deploy.
+    const res = await fetch(key, { cache: 'no-cache' });
+    if (cacheable(res)) await cache.put(key, res.clone());
+    return res;
+  } catch (err) {
+    // Offline and this build is not cached yet: another build's file beats a blank page.
+    const other = await cache.match(url.origin + url.pathname, { ignoreSearch: true });
+    if (other) return other;
+    throw err;
+  }
+}
+
+// Drop css/js that belong to other builds.
+async function pruneShell() {
+  if (!STAMPED) return;
+  const cache = await caches.open(SHELL_CACHE);
+  const keys = await cache.keys();
+  await Promise.all(keys.map((req) => {
+    const v = new URL(req.url).searchParams.get('v');
+    return v === null || v === BUILD ? null : cache.delete(req);
+  }));
+}
 
 async function shellStaleWhileRevalidate(event, req, url) {
   const cache = await caches.open(SHELL_CACHE);
