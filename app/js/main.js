@@ -1,13 +1,18 @@
 // Wiring, state and routing. State that must survive reload/back lives in location.hash:
-//   #/{set}        list
+//   #/{set}        list: one section per genre, or the flat result grid while a search/genre filter is on
+//   #/{set}/map    every title as a dot on the genre map
 //   #/{set}/{id}   graph centred on that id
 
-import { loadMeta, loadSet, posOfId } from './data.js';
+import { loadMeta, loadSet, loadXY, posOfId } from './data.js';
 import { filterItems } from './search.js';
 import { renderGraph, genreColor, PALETTE_SIZE } from './graph.js';
 import { showPanel } from './panel.js';
+import { genreSections } from './sections.js';
+import { renderMap, matchMask } from './map.js';
 
 const PAGE = 100;            // rows rendered per step
+const SECTION_ROWS = 6;      // cards per genre section: two rows of 3, three rows of 2
+const SECTION_ROWS_PHONE = 4;
 const COUNT_MIN = 5;
 const COUNT_MAX = 30;
 const COUNT_DEFAULT = 12;
@@ -42,6 +47,11 @@ const state = {
   selected: -1,
   count: readCount(),
   graph: null,
+  browse: 'list',      // the browsing view last shown ('list' | 'map'): where the graph's back button leads
+  map: null,           // map controller while the map view is open
+  mapSet: null,
+  mapSel: -1,          // position selected on the map
+  mapMem: {},          // set -> {view, selected}: pan/zoom and selection survive a trip to the graph
 };
 
 function readCount() {
@@ -55,6 +65,14 @@ function saveCount(v) {
   try { localStorage.setItem('neighbours', String(v)); } catch { /* ignore */ }
 }
 
+function readBrowse() {
+  try { return localStorage.getItem('browse') === 'map' ? 'map' : 'list'; } catch { return 'list'; }
+}
+function setBrowse(view) {
+  state.browse = view;
+  try { localStorage.setItem('browse', view); } catch { /* ignore */ }
+}
+
 // ---- views ----------------------------------------------------------------
 
 function setView(view) {
@@ -62,7 +80,9 @@ function setView(view) {
   $('view-status').hidden = view !== 'status';
   $('view-list').hidden = view !== 'list';
   $('view-graph').hidden = view !== 'graph';
+  $('view-map').hidden = view !== 'map';
   document.body.dataset.view = view;
+  if (view !== 'map') closeMap();
   if (view !== 'graph' && state.graph) {
     state.graph.destroy();
     state.graph = null;
@@ -88,33 +108,53 @@ function showStatus(kind) {
   setView('status');
 }
 
-function markSet(set) {
-  document.querySelectorAll('.seg a').forEach((a) => {
-    const on = a.dataset.set === set;
-    a.classList.toggle('is-on', on);
-    if (on) a.setAttribute('aria-current', 'page');
-    else a.removeAttribute('aria-current');
+function setCurrent(a, on) {
+  a.classList.toggle('is-on', on);
+  if (on) a.setAttribute('aria-current', 'page');
+  else a.removeAttribute('aria-current');
+}
+
+// Top-bar set switch (keeps the current browsing view), list/map switch, brand and back links.
+function markNav(r) {
+  const tail = r.map ? '/map' : '';
+  document.querySelectorAll('.seg a[data-set]').forEach((a) => {
+    a.setAttribute('href', `#/${a.dataset.set}${tail}`);
+    setCurrent(a, a.dataset.set === r.set);
   });
-  $('brand').setAttribute('href', `#/${set}`);
-  $('back').setAttribute('href', `#/${set}`);
+  document.querySelectorAll('.view-seg a').forEach((a) => {
+    const map = a.dataset.view === 'map';
+    a.setAttribute('href', `#/${r.set}${map ? '/map' : ''}`);
+    setCurrent(a, map === !!r.map);
+  });
+  $('brand').setAttribute('href', `#/${r.set}`);
+  const toMap = r.map || (r.id != null && state.browse === 'map');
+  const back = $('back');
+  back.setAttribute('href', `#/${r.set}${toMap ? '/map' : ''}`);
+  back.setAttribute('aria-label', toMap ? 'რუკაზე დაბრუნება' : 'სიაში დაბრუნება');
+  back.querySelector('span').textContent = toMap ? 'რუკა' : 'სია';
 }
 
 // ---- routing --------------------------------------------------------------
 
 function parseHash() {
-  const m = /^#\/(movie|serial)(?:\/(\d{1,9}))?\/?$/.exec(location.hash);
-  return m ? { set: m[1], id: m[2] ? Number(m[2]) : null } : null;
+  const m = /^#\/(movie|serial)(?:\/(map|\d{1,9}))?\/?$/.exec(location.hash);
+  if (!m) return null;
+  return { set: m[1], map: m[2] === 'map', id: m[2] && m[2] !== 'map' ? Number(m[2]) : null };
 }
 
 let routeSeq = 0;
+let opened = false;
 async function route() {
   let r = parseHash();
   if (!r) {
-    history.replaceState(null, '', '#/movie');
-    r = { set: 'movie', id: null };
+    // Opened without a route (home-screen icon, bare URL): start in the view used last time.
+    const map = !opened && readBrowse() === 'map';
+    history.replaceState(null, '', map ? '#/movie/map' : '#/movie');
+    r = { set: 'movie', map, id: null };
   }
+  opened = true;
   const seq = ++routeSeq;
-  markSet(r.set);
+  markNav(r);
   closeGenres();
 
   if (state.set !== r.set || !state.data) {
@@ -142,6 +182,10 @@ async function route() {
     }
   }
 
+  if (r.map) {
+    showMap();
+    return;
+  }
   if (r.id == null) {
     showList();
     return;
@@ -150,6 +194,7 @@ async function route() {
   if (p < 0) {
     state.note = `ID ${r.id} ამ ნაკრებში ვერ მოიძებნა.`;
     history.replaceState(null, '', `#/${r.set}`);
+    markNav({ set: r.set, map: false, id: null });
     showList();
     return;
   }
@@ -160,6 +205,7 @@ async function route() {
 
 function showList() {
   setView('list');
+  setBrowse('list');
   document.title = `${PLURAL[state.set]} — ${APP_TITLE}`;
   renderList();
   $('view-list').scrollTop = state.listScroll;
@@ -194,6 +240,39 @@ function buildRow(p) {
   return li;
 }
 
+// One block per genre: heading, the newest few titles, and a way to see all of them.
+function renderSections() {
+  const { index } = state.data;
+  const { genres } = state.meta;
+  const rows = phone.matches ? SECTION_ROWS_PHONE : SECTION_ROWS;
+  const frag = document.createDocumentFragment();
+  for (const { gi, items } of genreSections(index, genres.length)) {
+    const sec = el('section', 'gsec');
+    const head = el('div', 'gsec-head');
+    const title = el('h2', 'gsec-title');
+    const dot = el('span', 'dot');
+    dot.style.background = genreColor(gi);
+    title.append(dot, el('span', null, genres[gi]));
+    head.append(title, el('span', 'gsec-count', fmt(items.length)));
+    if (items.length > rows) {
+      const all = el('button', 'link-btn gsec-all', 'ყველა ›');
+      all.type = 'button';
+      all.dataset.gi = String(gi);
+      all.setAttribute('aria-label', `${genres[gi]}: ყველა ${fmt(items.length)}`);
+      head.append(all);
+    }
+    const list = el('ul', 'results');
+    for (let i = 0; i < items.length && i < rows; i++) list.append(buildRow(items[i]));
+    sec.append(head, list);
+    frag.append(sec);
+  }
+  $('sections').replaceChildren(frag);
+}
+
+function isFiltered() {
+  return state.query.trim() !== '' || state.genres.size > 0;
+}
+
 function appendRows(from, to) {
   const frag = document.createDocumentFragment();
   for (let i = from; i < to; i++) frag.append(buildRow(state.results[i]));
@@ -210,17 +289,22 @@ function updateMore() {
 function renderList() {
   const { index } = state.data;
   const total = index.id.length;
-  const filtered = state.query.trim() !== '' || state.genres.size > 0;
-  state.results = filterItems(index, { query: state.query, genres: [...state.genres] });
-  const found = state.results.length;
+  const filtered = isFiltered();
+  const sectioned = !filtered && total > 0;   // nothing typed, no genre picked: browse by genre
+  state.results = sectioned ? [] : filterItems(index, { query: state.query, genres: [...state.genres] });
+  const found = sectioned ? total : state.results.length;
 
   $('list-count').textContent = PLURAL[state.set];
   const note = $('list-note');
-  note.textContent = state.note || (filtered ? `ნაპოვნია ${fmt(found)} · სულ ${fmt(total)}` : `სულ ${fmt(total)} ${NOUN[state.set]} · ახლები ზემოთ`);
+  note.textContent = state.note || (filtered ? `ნაპოვნია ${fmt(found)} · სულ ${fmt(total)}` : `სულ ${fmt(total)} ${NOUN[state.set]} · ჟანრების მიხედვით`);
   note.classList.toggle('warn', !!state.note);
   note.hidden = false;
   state.note = '';
 
+  $('sections').hidden = !sectioned;
+  $('results').hidden = sectioned;
+  if (sectioned) renderSections();
+  else $('sections').replaceChildren();
   $('results').replaceChildren();
   appendRows(0, Math.min(state.limit, found));
   updateMore();
@@ -234,13 +318,18 @@ function renderList() {
   }
 }
 
+// Re-apply the search box + genre filter to whichever browsing view is open.
 let listRaf = 0;
 function scheduleList() {
   cancelAnimationFrame(listRaf);
   listRaf = requestAnimationFrame(() => {
-    if (state.view !== 'list' || !state.data) return;
-    renderList();
-    $('view-list').scrollTop = 0;
+    if (!state.data) return;
+    if (state.view === 'map') {
+      applyMapFilter(true);
+    } else if (state.view === 'list') {
+      renderList();
+      $('view-list').scrollTop = 0;
+    }
   });
 }
 
@@ -312,6 +401,196 @@ function openGenres() {
 function closeGenres() {
   $('genre-pop').hidden = true;
   $('genre-btn').setAttribute('aria-expanded', 'false');
+}
+
+// ---- map ------------------------------------------------------------------
+
+let mapSeq = 0;
+
+function closeMap() {
+  mapSeq++;
+  if (state.map) {
+    state.mapMem[state.mapSet] = { view: state.map.view(), selected: state.mapSel };
+    state.map.destroy();
+    state.map = null;
+  }
+  state.mapSel = -1;
+  $('map-card').hidden = true;
+}
+
+function mapStatus(kind) {
+  const box = $('map-status');
+  box.hidden = !kind;
+  $('map').hidden = !!kind;
+  $('map-fit').hidden = kind === 'error';
+  if (kind === 'loading') {
+    const spin = el('div', 'spinner');
+    spin.setAttribute('aria-hidden', 'true');
+    box.replaceChildren(spin, el('p', null, 'რუკა იტვირთება…'));
+  } else if (kind === 'error') {
+    const retry = el('button', 'btn primary', 'თავიდან ცდა');
+    retry.type = 'button';
+    retry.addEventListener('click', showMap);
+    box.replaceChildren(
+      el('p', 'empty-title', 'რუკა ვერ ჩაიტვირთა'),
+      el('p', 'muted', 'შეამოწმე ინტერნეტი და სცადე თავიდან. სია და გრაფი ისევ მუშაობს.'),
+      retry,
+    );
+  } else {
+    box.replaceChildren();
+  }
+}
+
+function renderMapLegend() {
+  const { index } = state.data;
+  const { genres } = state.meta;
+  const used = new Set();
+  let other = false;
+  for (let p = 0; p < index.id.length; p++) {
+    const gi = (index.g[p] || [])[0];
+    if (Number.isInteger(gi) && gi < PALETTE_SIZE && genres[gi]) used.add(gi);
+    else other = true;
+  }
+  const box = $('map-legend');
+  box.replaceChildren();
+  const add = (color, name) => {
+    const item = el('span', 'legend-item');
+    const dot = el('span', 'dot');
+    dot.style.background = color;
+    item.append(dot, el('span', null, name));
+    box.append(item);
+  };
+  [...used].sort((a, b) => a - b).forEach((gi) => add(genreColor(gi), genres[gi]));
+  if (other) add(genreColor(-1), 'სხვა');
+}
+
+function renderMapNote(m) {
+  const note = $('map-note');
+  const total = state.data.index.id.length;
+  note.hidden = !m.mask;
+  note.textContent = m.mask ? (m.count ? `ნაპოვნია ${fmt(m.count)} / ${fmt(total)}` : 'ვერაფერი მოიძებნა') : '';
+}
+
+// Part of the map hidden under the card, in the map's own coordinates.
+function mapCover() {
+  const card = $('map-card');
+  if (card.hidden) return null;
+  const c = card.getBoundingClientRect();
+  const m = $('map').getBoundingClientRect();
+  return { left: c.left - m.left, top: c.top - m.top, right: c.right - m.left, bottom: c.bottom - m.top };
+}
+
+function renderMapCard() {
+  const card = $('map-card');
+  const p = state.mapSel;
+  if (p < 0) {
+    card.hidden = true;
+    card.replaceChildren();
+    return;
+  }
+  const { index } = state.data;
+  const { genres } = state.meta;
+  const ka = index.ka[p];
+  const en = index.en[p];
+
+  const head = el('div', 'map-card-head');
+  const titles = el('div', 'titles');
+  titles.append(el('h2', 'map-card-title', ka || en || `#${index.id[p]}`));
+  const sub = [];
+  if (ka && en) sub.push(en);
+  if (index.year[p]) sub.push(String(index.year[p]));
+  if (sub.length) titles.append(el('p', 'panel-sub', sub.join(' · ')));
+  const close = el('button', 'icon-btn');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'დახურვა');
+  const x = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  x.setAttribute('viewBox', '0 0 20 20');
+  x.setAttribute('width', '16');
+  x.setAttribute('height', '16');
+  x.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M5 5l10 10M15 5L5 15');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-linecap', 'round');
+  x.append(path);
+  close.append(x);
+  close.addEventListener('click', () => selectOnMap(-1));
+  head.append(titles, close);
+
+  const tags = el('div', 'tags');
+  for (const gi of (index.g[p] || []).slice(0, 4)) {
+    if (!genres[gi]) continue;
+    const tag = el('span', 'tag');
+    const dot = el('span', 'dot');
+    dot.style.background = genreColor(gi);
+    tag.append(dot, el('span', null, genres[gi]));
+    tags.append(tag);
+  }
+
+  const go = el('a', 'btn primary', 'გრაფის ნახვა');
+  go.href = `#/${state.set}/${index.id[p]}`;
+
+  card.replaceChildren(head, ...(tags.childElementCount ? [tags] : []), go);
+  card.hidden = false;
+}
+
+function selectOnMap(p) {
+  if (!state.map) return;
+  state.mapSel = p;
+  renderMapCard();
+  state.map.select(p);
+}
+
+function applyMapFilter(byUser = false) {
+  if (!state.map) return;
+  const m = matchMask(state.data.index, { query: state.query, genres: [...state.genres] });
+  state.map.setMatch(m.mask, m.count);
+  renderMapNote(m);
+  // a search that leaves exactly one title: show where it is
+  if (byUser && m.mask && m.count === 1 && state.query.trim() !== '') {
+    selectOnMap(m.best);
+    state.map.centreOn(m.best);
+  }
+}
+
+function showMap() {
+  closeMap();                      // a map of the other set, or a failed attempt
+  setView('map');
+  setBrowse('map');
+  document.title = `${PLURAL[state.set]} · რუკა — ${APP_TITLE}`;
+  renderMapLegend();
+  $('map-note').hidden = true;
+  const seq = mapSeq;
+  const set = state.set;
+  mapStatus(null);
+  const timer = setTimeout(() => { if (seq === mapSeq) mapStatus('loading'); }, 150);
+  loadXY(set).then((xy) => {
+    clearTimeout(timer);
+    if (seq !== mapSeq || state.view !== 'map') return;
+    mapStatus(null);               // the container must be visible before it is measured
+    const mem = state.mapMem[set] || {};
+    const m = matchMask(state.data.index, { query: state.query, genres: [...state.genres] });
+    state.mapSet = set;
+    state.mapSel = Number.isInteger(mem.selected) ? mem.selected : -1;
+    renderMapCard();
+    state.map = renderMap($('map'), {
+      index: state.data.index,
+      xy,
+      genres: state.meta.genres,
+      mask: m.mask,
+      matchCount: m.count,
+      selected: state.mapSel,
+      view: mem.view,
+      cover: mapCover,
+      onSelect: selectOnMap,
+    });
+    renderMapNote(m);
+  }, (err) => {
+    clearTimeout(timer);
+    console.error(err);
+    if (seq === mapSeq && state.view === 'map') mapStatus('error');
+  });
 }
 
 // ---- graph ----------------------------------------------------------------
@@ -493,6 +772,23 @@ function bind() {
   });
   $('list-reset').addEventListener('click', resetFilters);
 
+  // "ყველა ›" of a genre section = that genre as the filter
+  $('sections').addEventListener('click', (event) => {
+    const all = event.target.closest('.gsec-all');
+    if (!all) return;
+    state.genres = new Set([Number(all.dataset.gi)]);
+    onGenresChanged();
+  });
+  // "სექციები" while a filter hides the sections: clear the filter instead of doing nothing
+  document.querySelectorAll('.view-seg a[data-view="list"]').forEach((a) => {
+    a.addEventListener('click', (event) => {
+      if (state.view !== 'list' || !isFiltered()) return;
+      event.preventDefault();
+      resetFilters();
+    });
+  });
+  $('map-fit').addEventListener('click', () => { if (state.map) state.map.fit(); });
+
   $('more').addEventListener('click', () => {
     const from = Math.min(state.limit, state.results.length);
     state.limit += PAGE;
@@ -524,7 +820,10 @@ function bind() {
     if (!$('genre-pop').hidden && !event.target.closest('.genre-wrap')) closeGenres();
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeGenres();
+    if (event.key === 'Escape') {
+      if (state.view === 'map' && state.mapSel >= 0 && $('genre-pop').hidden) selectOnMap(-1);
+      closeGenres();
+    }
     if (event.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
       event.preventDefault();
       $('q').focus();
@@ -563,7 +862,10 @@ function bind() {
   $('panel-body').addEventListener('click', (event) => {
     if (phone.matches && sheetMode() === 'peek' && !event.target.closest('a, button')) setSheet('half');
   });
-  phone.addEventListener('change', () => { if (state.graph) state.graph.setInsets(insets(), focusMode()); });
+  phone.addEventListener('change', () => {
+    if (state.graph) state.graph.setInsets(insets(), focusMode());
+    if (state.view === 'list' && state.data && !isFiltered()) renderList();   // sections show fewer cards on phones
+  });
 }
 
 function registerServiceWorker() {

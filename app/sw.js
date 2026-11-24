@@ -5,7 +5,7 @@
 //
 //   shell files          stale-while-revalidate (cache answers, network refreshes it)
 //   data/meta.json       network-first, cached copy when offline
-//   data/*?v=<version>   cache-first (the version is part of the URL)
+//   data/*?v=<version>   cache-first (the version is part of the URL; includes {set}.xy.json)
 //   other origins        not handled at all (posters go straight to the network)
 //
 // The cached data/meta.json is the "newest version seen". Whenever a fresher
@@ -29,6 +29,8 @@ const SHELL = [
   'js/search.js',
   'js/graph.js',
   'js/panel.js',
+  'js/sections.js',
+  'js/map.js',
   'vendor/d3.min.js',
   'manifest.webmanifest',
   'icons/icon-192.png',

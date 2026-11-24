@@ -76,3 +76,26 @@ test('unknown set rejects', async () => {
   const { loadSet } = await fresh();
   await assert.rejects(loadSet('nope'));
 });
+
+test('loadXY: fetched on demand with the version, memoised, shape checked against the index', async () => {
+  const { loadXY } = await fresh();
+  FILES['data/movie.xy.json?v=20261124T1200'] = { x: [0, 500, 1000], y: [10, 20, 30] };
+  const xy = await loadXY('movie');
+  assert.deepEqual(xy, { x: [0, 500, 1000], y: [10, 20, 30] });
+  await loadXY('movie');
+  assert.equal(calls.filter((u) => u.includes('.xy.json')).length, 1);
+
+  const other = await fresh();
+  FILES['data/movie.xy.json?v=20261124T1200'] = { x: [0, 500], y: [10, 20] };   // one entry short
+  await assert.rejects(other.loadXY('movie'), /unexpected shape/);
+  delete FILES['data/movie.xy.json?v=20261124T1200'];
+});
+
+test('loadXY: a missing file fails without breaking the set, and a retry refetches', async () => {
+  const { loadXY, loadSet } = await fresh();
+  await assert.rejects(loadXY('movie'), /HTTP 503/);
+  assert.equal((await loadSet('movie')).index.id.length, 3);
+  FILES['data/movie.xy.json?v=20261124T1200'] = { x: [1, 2, 3], y: [4, 5, 6] };
+  assert.deepEqual((await loadXY('movie')).x, [1, 2, 3]);
+  delete FILES['data/movie.xy.json?v=20261124T1200'];
+});

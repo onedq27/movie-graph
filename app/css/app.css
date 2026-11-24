@@ -376,6 +376,34 @@ main { flex: 1; min-height: 0; position: relative; }
 }
 .row-genres { max-width: 100%; }
 .row-id { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.view-seg { align-self: center; margin-left: auto; }
+
+/* sections: one block per genre (shown while nothing is searched or filtered) */
+.gsec { margin-top: 22px; }
+.gsec:first-child { margin-top: 2px; }
+.gsec-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  margin-bottom: 6px;
+}
+.gsec-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16.5px;
+  line-height: 1.25;
+}
+.gsec-count {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.gsec-all { flex: none; margin-left: auto; padding: 6px 2px 6px 10px; font-size: 13.5px; white-space: nowrap; }
+.gsec-all:hover { text-decoration: underline; }
+
 .more-wrap { display: flex; justify-content: center; margin-top: 16px; }
 .empty {
   display: flex;
@@ -487,6 +515,75 @@ main { flex: 1; min-height: 0; position: relative; }
 }
 .node.is-center .label { font-size: 13px; font-weight: 700; }
 .node.is-selected .label { font-weight: 700; }
+
+/* ---- map view --------------------------------------------------------- */
+
+#view-map { height: 100%; }
+.map-stage { height: 100%; }
+.map-stage .view-seg { margin-left: 0; background: var(--surface); border: 1px solid var(--border); padding: 2px; }
+.map-stage .view-seg a.is-on { background: var(--surface-2); box-shadow: none; }
+.map-note {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.map { position: relative; cursor: grab; }
+.map:active { cursor: grabbing; }
+.map-canvas { display: block; outline: none; }
+.map-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.map-tip {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  max-width: min(300px, calc(100% - 12px));
+  padding: 4px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.map-status { order: 2; flex: 1; height: auto; min-height: 0; }
+.map-status .btn { margin-top: 8px; }
+.map-card {
+  position: absolute;
+  z-index: 5;
+  left: 12px;
+  bottom: 12px;
+  width: 330px;
+  max-width: calc(100% - 24px);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.map-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.map-card-head .titles { flex: 1; min-width: 0; }
+.map-card-head .icon-btn { flex: none; margin: -5px -6px 0 0; }
+.map-card-title {
+  font-size: 17px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.map-card .panel-sub { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-card .btn { min-height: 44px; font-size: 15px; }
 
 /* ---- panel ------------------------------------------------------------ */
 
@@ -614,6 +711,22 @@ main { flex: 1; min-height: 0; position: relative; }
 
   #view-list { padding: 14px 12px calc(24px + env(safe-area-inset-bottom)); }
   .results { grid-template-columns: minmax(0, 1fr); }
+  .list-head { align-items: center; }
+  .list-head h1 { flex: 1; min-width: 0; }
+  .list-head p { order: 3; flex: 0 0 100%; }
+  .gsec { margin-top: 18px; }
+
+  .map-card {
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    gap: 8px;
+    padding: 12px;
+  }
+  .map-card .tags { flex-wrap: nowrap; overflow: hidden; }
+  .map-card .tag { white-space: nowrap; }
   .row-side { max-width: 36%; }
 
   #view-graph { display: block; }

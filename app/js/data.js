@@ -5,6 +5,7 @@ let metaPromise = null;
 let meta = null;
 const setCache = new Map();    // set -> Promise<{index, nb}>
 const chunkCache = new Map();  // `${set}.${k}` -> Promise<{desc, img, url}>
+const xyCache = new Map();     // set -> Promise<{x, y}>
 
 /** [chunk number, offset inside the chunk] for position p. */
 export function chunkOf(p, chunkSize) {
@@ -67,6 +68,22 @@ export function loadSet(set) {
       getJson(dataUrl(`${set}.nb.json`, m.version)),
     ]);
     return { index, nb };
+  });
+}
+
+/** Map coordinates ({x: [0..1000], y: [0..1000]}, one entry per position). Fetched on demand. */
+export function loadXY(set) {
+  return memo(xyCache, set, async () => {
+    const m = meta || await loadMeta();
+    const [{ index }, xy] = await Promise.all([
+      loadSet(set),
+      getJson(dataUrl(`${set}.xy.json`, m.version)),
+    ]);
+    const n = index.id.length;
+    if (!xy || !Array.isArray(xy.x) || !Array.isArray(xy.y) || xy.x.length !== n || xy.y.length !== n) {
+      throw new Error(`${set}.xy.json: unexpected shape`);
+    }
+    return xy;
   });
 }
 

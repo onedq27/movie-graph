@@ -72,7 +72,12 @@
       <div class="list-head">
         <h1 id="list-count"></h1>
         <p id="list-note" class="muted" hidden></p>
+        <nav class="seg view-seg" aria-label="ხედი">
+          <a href="#/movie" data-view="list">სექციები</a>
+          <a href="#/movie/map" data-view="map">რუკა</a>
+        </nav>
       </div>
+      <div id="sections" class="sections" hidden></div>
       <ul id="results" class="results"></ul>
       <div id="list-empty" class="empty" hidden>
         <p class="empty-title">ვერაფერი მოიძებნა</p>
@@ -80,6 +85,25 @@
         <button id="list-reset" class="btn" type="button">ფილტრების გასუფთავება</button>
       </div>
       <div class="more-wrap"><button id="more" class="btn" type="button" hidden>მეტის ჩვენება</button></div>
+    </section>
+
+    <section id="view-map" hidden>
+      <div class="stage map-stage">
+        <div class="stage-bar">
+          <nav class="seg view-seg" aria-label="ხედი">
+            <a href="#/movie" data-view="list">სექციები</a>
+            <a href="#/movie/map" data-view="map">რუკა</a>
+          </nav>
+          <button id="map-fit" class="btn icon" type="button" aria-label="რუკის ჩატევა ეკრანზე" title="ჩატევა ეკრანზე">
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <p id="map-note" class="map-note" aria-live="polite" hidden></p>
+          <div id="map-legend" class="legend" aria-label="ფერები ჟანრის მიხედვით"></div>
+        </div>
+        <div id="map" class="graph map"></div>
+        <div id="map-status" class="status map-status" hidden></div>
+        <aside id="map-card" class="map-card" aria-label="არჩეული სათაური" aria-live="polite" hidden></aside>
+      </div>
     </section>
 
     <section id="view-graph" hidden>
