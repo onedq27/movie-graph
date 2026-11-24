@@ -63,3 +63,13 @@ python3 -m http.server -d app 8765
 - `app/sw.js`, `app/manifest.webmanifest`, `app/icons/` — PWA-ს ნაწილი
   (ხატულების თავიდან დაგენერირება: `python3 app/dev/make_icons.py`).
 - `data/` — ნედლი ქეში და embedding-ები; რეპოში არ იდება.
+
+## ავტომატური სინქრონიზაცია
+
+GitHub Actions (`.github/workflows/sync.yml`) დღეში ერთხელ (07:17 თბილისის დროით) ამოწმებს gemovie.tv-ის sitemap-ს.
+თუ ახალი ფილმი ან სერიალი გამოჩნდა, ჩამოტვირთავს მხოლოდ ახალ გვერდებს, თავიდან ითვლის მეზობლებსა და რუკას,
+ინახავს `app/data/`-ში და აპს თავიდან აქვეყნებს. თუ ახალი არაფერია, არაფერს ცვლის.
+
+- ხელით გაშვება: რეპოს Actions → "Sync new titles" → Run workflow, ან `gh workflow run sync.yml`.
+- ჩამოტვირთული გვერდები და embedding-ების ქეში ინახება `data-state` release-ის ფაილებად. ეს release არ წაშალო.
+- ლოკალურად მუშაობამდე გააკეთე `git pull`, რადგან სინქრონიზაცია `app/data/`-ს თვითონ ცვლის.

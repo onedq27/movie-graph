@@ -100,3 +100,18 @@ def test_empty_set_and_stale_chunks_removed(tmp_path):
 def test_georgian_is_written_unescaped(exported):
     _, out, _ = exported
     assert "სათაური" in (out / "movie.index.json").read_text(encoding="utf-8")
+
+
+def test_source_hash_changes_only_when_items_change():
+    from pipeline.extract import Item
+    from pipeline.run import source_hash
+
+    def item(i, desc="d"):
+        return Item(id=i, type="movie", title_ka="ა", title_en="a", year=2000, genres=["დრამა"],
+                    description=desc, image="", url="")
+
+    base = [item(1), item(2)]
+    assert source_hash(base) == source_hash([item(1), item(2)])
+    assert source_hash(base) != source_hash(base + [item(3)])
+    assert source_hash(base) != source_hash([item(1), item(2, "other")])
+    assert source_hash(base) != source_hash([item(1)])

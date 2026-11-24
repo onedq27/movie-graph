@@ -3,6 +3,7 @@
 Usage (from the repo root): .venv/bin/python -m pipeline.run [--out app/data]
 """
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -18,12 +19,26 @@ MAX_FILE_BYTES = 4 * 1024 * 1024
 SHOWCASE = ("movie", 1894)  # Iron Man
 
 
+def source_hash(items) -> str:
+    """Fingerprint of everything the export depends on: the items and the
+    similarity settings. Same fingerprint, same export."""
+    h = hashlib.sha1()
+    h.update(json.dumps([similarity.MODEL, similarity.TITLE_WEIGHT, similarity.W_PLOT, similarity.W_GENRE,
+                         layout.GRID, layout.GAP]).encode("utf-8"))
+    for it in items:
+        h.update(json.dumps([it.type, it.id, it.title_ka, it.title_en, it.year, it.genres,
+                             it.description, it.image, it.url], ensure_ascii=False).encode("utf-8"))
+    return h.hexdigest()
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument("--out", type=Path, default=ROOT / "app" / "data", help="output directory")
     ap.add_argument("--pages", type=Path, default=ROOT / "data" / "raw" / "pages.jsonl")
     ap.add_argument("--sitemap-keys", type=Path, default=ROOT / "data" / "raw" / "sitemap_keys.json")
     ap.add_argument("--cache", type=Path, default=ROOT / "data" / "cache")
+    ap.add_argument("--if-changed", action="store_true",
+                    help="do nothing when the items are the same as in the existing export")
     args = ap.parse_args(argv)
 
     keys = args.sitemap_keys if args.sitemap_keys.exists() else None
@@ -31,6 +46,17 @@ def main(argv=None) -> int:
     if not items:
         print(f"no usable items in {args.pages}; nothing exported", file=sys.stderr)
         return 1
+
+    source = source_hash(items)
+    meta_path = args.out / "meta.json"
+    if args.if_changed and meta_path.exists():
+        try:
+            previous = json.loads(meta_path.read_text(encoding="utf-8")).get("source")
+        except ValueError:
+            previous = None
+        if previous == source:
+            print(f"no changes: {len(items)} items, same as the existing export")
+            return 0
 
     items_by_set, nb_by_set, xy_by_set = {}, {}, {}
     for kind in SETS:
@@ -48,6 +74,9 @@ def main(argv=None) -> int:
 
     version = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M")
     export(items_by_set, nb_by_set, args.out, version)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["source"] = source
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for kind, part in items_by_set.items():
         # Same order as {set}.index.json: position = index after sorting by id.
         order = sorted(range(len(part)), key=lambda i: part[i].id)
