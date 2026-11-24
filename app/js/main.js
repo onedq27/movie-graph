@@ -73,6 +73,39 @@ function setBrowse(view) {
   try { localStorage.setItem('browse', view); } catch { /* ignore */ }
 }
 
+// ---- theme ----------------------------------------------------------------
+// <html data-theme> is first set by the inline script in index.html. Until the user
+// presses the toggle the app follows the system; after that their choice is kept.
+
+const THEME_BAR = { light: '#f4f5f8', dark: '#0e1014' };   // --bg of each theme
+const darkMq = matchMedia('(prefers-color-scheme: dark)');
+
+function savedTheme() {
+  try {
+    const t = localStorage.getItem('theme');
+    return t === 'dark' || t === 'light' ? t : null;
+  } catch { return null; }
+}
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $('theme-color').content = THEME_BAR[theme];
+  const label = theme === 'dark' ? 'ღია თემა' : 'მუქი თემა';   // what the button switches to
+  $('theme-btn').setAttribute('aria-label', label);
+  $('theme-btn').title = label;
+  document.dispatchEvent(new Event('themechange'));         // the canvas map re-reads its colours
+}
+function initTheme() {
+  applyTheme(savedTheme() || (darkMq.matches ? 'dark' : 'light'));
+  $('theme-btn').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('theme', next); } catch { /* ignore */ }
+    applyTheme(next);
+  });
+  darkMq.addEventListener('change', () => {
+    if (!savedTheme()) applyTheme(darkMq.matches ? 'dark' : 'light');
+  });
+}
+
 // ---- views ----------------------------------------------------------------
 
 function setView(view) {
@@ -752,6 +785,7 @@ function showGraph(p) {
 // ---- events ---------------------------------------------------------------
 
 function bind() {
+  initTheme();
   window.addEventListener('hashchange', route);
 
   $('q').addEventListener('input', onQuery);

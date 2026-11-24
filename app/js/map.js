@@ -139,7 +139,6 @@ export function renderMap(container, opts) {
   const ys = Float32Array.from(xy.y);
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const coarse = matchMedia('(pointer: coarse)');
-  const darkMq = matchMedia('(prefers-color-scheme: dark)');
 
   // ---- static model -------------------------------------------------------
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
@@ -644,7 +643,7 @@ export function renderMap(container, opts) {
   canvas.addEventListener('click', onClick);
   canvas.addEventListener('keydown', onKey);
   const onTheme = () => { readTheme(); invalidate(); };
-  darkMq.addEventListener('change', onTheme);
+  document.addEventListener('themechange', onTheme);   // fired by main.js on every theme switch
 
   let ro = null;
   if (typeof ResizeObserver === 'function') {
@@ -694,7 +693,7 @@ export function renderMap(container, opts) {
       destroyed = true;
       cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
-      darkMq.removeEventListener('change', onTheme);
+      document.removeEventListener('themechange', onTheme);
       sel.interrupt();
       sel.on('.zoom', null);
       canvas.remove();

@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ფილმების გრაფი</title>
   <meta name="description" content="gemovie.tv-ის ფილმებისა და სერიალების მსგავსების გრაფი">
-  <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
-  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" id="theme-color" content="#f4f5f8">
+  <script>
+    // Set the theme before first paint: the saved choice, else the system setting. Kept in sync by main.js.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) { /* storage may be unavailable */ }
+      if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+      document.getElementById('theme-color').content = t === 'dark' ? '#0e1014' : '#f4f5f8';
+    })();
+  </script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="ფილმები">
@@ -60,6 +68,11 @@
         <div class="popover-foot"><button id="genre-done" class="btn primary" type="button">მზადაა</button></div>
       </div>
     </div>
+
+    <button id="theme-btn" class="btn icon theme-btn" type="button" aria-label="მუქი თემა" title="მუქი თემა">
+      <svg class="i-moon" viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M16.5 12.2A7 7 0 0 1 7.8 3.5a7 7 0 1 0 8.7 8.7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      <svg class="i-sun" viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 1.8v2.2M10 16v2.2M1.8 10H4M16 10h2.2M4.2 4.2l1.6 1.6M14.2 14.2l1.6 1.6M4.2 15.8l1.6-1.6M14.2 5.8l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
   </header>
 
   <main id="main">

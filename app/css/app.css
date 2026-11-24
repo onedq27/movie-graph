@@ -1,7 +1,8 @@
-/* ფილმების გრაფი — app styles. Light by default, dark via prefers-color-scheme. */
+/* ფილმების გრაფი — app styles. Follows the system theme until the user picks one;
+   <html data-theme="light|dark"> is set by the inline script in index.html and by main.js. */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #f4f5f8;
   --surface: #ffffff;
   --surface-2: #eceef3;
@@ -52,52 +53,51 @@
   font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Georgian", "BPG Arial", Roboto, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1014;
-    --surface: #171a21;
-    --surface-2: #20242d;
-    --border: #2b303b;
-    --text: #e8ebf0;
-    --muted: #9aa3b2;
-    --accent: #8f8bff;
-    --accent-soft: #26264a;
-    --on-accent: #0e1014;
-    --warn-bg: #3a2f10;
-    --warn-text: #f3d48a;
-    --stage-bg: #0b0d11;
-    --stage-dot: rgba(255, 255, 255, 0.075);
-    --link: #8a94a6;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 32px rgba(0, 0, 0, 0.5);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1014;
+  --surface: #171a21;
+  --surface-2: #20242d;
+  --border: #2b303b;
+  --text: #e8ebf0;
+  --muted: #9aa3b2;
+  --accent: #8f8bff;
+  --accent-soft: #26264a;
+  --on-accent: #0e1014;
+  --warn-bg: #3a2f10;
+  --warn-text: #f3d48a;
+  --stage-bg: #0b0d11;
+  --stage-dot: rgba(255, 255, 255, 0.075);
+  --link: #8a94a6;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 32px rgba(0, 0, 0, 0.5);
 
-    --g0: #6aa0f5;
-    --g1: #ff7168;
-    --g2: #f3bd3f;
-    --g3: #a98bf5;
-    --g4: #56c785;
-    --g5: #3ccbdb;
-    --g6: #b7c94c;
-    --g7: #ff9c4a;
-    --g8: #c29c7e;
-    --g9: #f78fba;
-    --g10: #3f5fd0;
-    --g11: #d85cf0;
-    --g12: #a6e84a;
-    --g13: #c8414f;
-    --g14: #8fa0b8;
-    --g15: #2f9460;
-    --g16: #ffc4bf;
-    --g17: #9adcff;
-    --g18: #fff06a;
-    --g19: #1fa39b;
-    --g20: #d6caff;
-    --g21: #e8c896;
-    --g22: #ff3d96;
-    --g23: #00f0d8;
-    --g24: #a8f0cf;
-    --g25: #f2f4f8;
-    --g-other: #6f7785;
-  }
+  --g0: #6aa0f5;
+  --g1: #ff7168;
+  --g2: #f3bd3f;
+  --g3: #a98bf5;
+  --g4: #56c785;
+  --g5: #3ccbdb;
+  --g6: #b7c94c;
+  --g7: #ff9c4a;
+  --g8: #c29c7e;
+  --g9: #f78fba;
+  --g10: #3f5fd0;
+  --g11: #d85cf0;
+  --g12: #a6e84a;
+  --g13: #c8414f;
+  --g14: #8fa0b8;
+  --g15: #2f9460;
+  --g16: #ffc4bf;
+  --g17: #9adcff;
+  --g18: #fff06a;
+  --g19: #1fa39b;
+  --g20: #d6caff;
+  --g21: #e8c896;
+  --g22: #ff3d96;
+  --g23: #00f0d8;
+  --g24: #a8f0cf;
+  --g25: #f2f4f8;
+  --g-other: #6f7785;
 }
 
 @media (pointer: coarse) {
@@ -164,6 +164,9 @@ button, input { font: inherit; color: inherit; }
 .btn.icon { padding: 0; width: var(--tap); }
 .btn.is-active { border-color: var(--accent); }
 .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.theme-btn { flex: none; }
+.theme-btn .i-sun, :root[data-theme="dark"] .theme-btn .i-moon { display: none; }
+:root[data-theme="dark"] .theme-btn .i-sun { display: block; }
 .icon-btn {
   display: grid;
   place-items: center;
@@ -730,7 +733,7 @@ main { flex: 1; min-height: 0; position: relative; }
 @media (max-width: 719px) {
   .topbar {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     gap: 8px;
     padding: 8px 12px;
     padding-top: calc(8px + env(safe-area-inset-top));
@@ -739,6 +742,7 @@ main { flex: 1; min-height: 0; position: relative; }
   .seg { grid-row: 1; grid-column: 1; justify-self: start; }
   .search { grid-row: 2; grid-column: 1 / -1; max-width: none; }
   .genre-wrap { grid-row: 1; grid-column: 2; position: static; margin-left: 0; }
+  .theme-btn { grid-row: 1; grid-column: 3; }
   .popover { left: 8px; right: 8px; top: calc(100% + 6px); width: auto; max-width: none; }
 
   #view-list { padding: 14px 12px calc(24px + env(safe-area-inset-bottom)); }
