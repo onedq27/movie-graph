@@ -1,7 +1,7 @@
 // d3 force graph: one centre item and its nearest neighbours.
 // d3 is loaded as a classic script (vendor/d3.min.js) before the modules.
 
-export const PALETTE_SIZE = 10;
+export const PALETTE_SIZE = 26;
 
 /** CSS colour for a genre index (the most frequent genres get their own hue). */
 export function genreColor(gi) {

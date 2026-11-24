@@ -53,6 +53,6 @@ test('wrapLabel keeps short titles, wraps to two lines, truncates the rest', () 
 test('genreColor falls back to the neutral colour', () => {
   assert.equal(genreColor(0), 'var(--g0)');
   assert.equal(genreColor(9), 'var(--g9)');
-  assert.equal(genreColor(10), 'var(--g-other)');
+  assert.equal(genreColor(26), 'var(--g-other)');
   assert.equal(genreColor(undefined), 'var(--g-other)');
 });

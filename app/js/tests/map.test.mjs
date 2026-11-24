@@ -78,7 +78,7 @@ test('label choice is capped', () => {
 });
 
 test('colour bucket: palette genres keep their slot, the rest share one', () => {
-  assert.deepEqual([bucketOf(0), bucketOf(9), bucketOf(10), bucketOf(25), bucketOf(undefined), bucketOf(-1)], [0, 9, 10, 10, 10, 10]);
+  assert.deepEqual([bucketOf(0), bucketOf(9), bucketOf(10), bucketOf(25), bucketOf(26), bucketOf(undefined), bucketOf(-1)], [0, 9, 10, 25, 26, 26, 26]);
 });
 
 test('clipTitle', () => {
