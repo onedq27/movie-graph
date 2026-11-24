@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Scrape cache and embeddings: top-level data/ only. app/data/ IS committed.
+/data/
+
+# Editor / OS
+.idea/
+.DS_Store
